@@ -1,0 +1,47 @@
+name: Build Windows Game
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  windows:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+      - name: Install Godot 4.4.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo install -m 755 /tmp/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          curl -fL --retry 3 -o /tmp/templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          godot --version
+      - name: Import project and check scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --import --quit
+      - name: Export Windows EXE
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          godot --headless --path . --export-release "Windows Desktop" build/CritikalSTRIKE.exe
+          test -s build/CritikalSTRIKE.exe
+          test -s build/CritikalSTRIKE.pck
+          ls -lh build/
+      - name: Upload playable Windows game
+        uses: actions/upload-artifact@v4
+        with:
+          name: CritikalSTRIKE-Windows
+          path: build/
+          if-no-files-found: error
+          retention-days: 30
